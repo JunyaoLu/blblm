@@ -6,7 +6,7 @@ Author: Junyao Lu
 Maintainer: Junyao Lu <jyllu@ucdavis.edu>
 Description: Fit linear regression models and logistic regression models 
     using bag of little bootstraps.
-License: What license is it under?
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Suggests: 
