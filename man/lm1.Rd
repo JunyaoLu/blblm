@@ -2,10 +2,20 @@
 % Please edit documentation in R/blblm.R
 \name{lm1}
 \alias{lm1}
-\title{compute the regression estimates for a blb dataset}
+\title{Computing Regression Estimates}
 \usage{
 lm1(X, y, n)
 }
+\arguments{
+\item{X}{independent variables of the data.}
+
+\item{y}{dependent variables of the data.}
+
+\item{n}{number of rows of the data.}
+}
+\value{
+a list of coefficients and sigma for the blb dataset.
+}
 \description{
-compute the regression estimates for a blb dataset
+Compute the regression estimates for a blb dataset.
 }

@@ -2,10 +2,16 @@
 % Please edit documentation in R/blblm.R
 \name{blbsigma}
 \alias{blbsigma}
-\title{compute sigma from fit}
+\title{Computing Sigma}
 \usage{
 blbsigma(fit)
 }
+\arguments{
+\item{fit}{a list containing information about the fitted model.}
+}
+\value{
+the sigma of the model.
+}
 \description{
-compute sigma from fit
+Compute sigma from fit.
 }

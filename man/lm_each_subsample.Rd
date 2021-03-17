@@ -2,10 +2,22 @@
 % Please edit documentation in R/blblm.R
 \name{lm_each_subsample}
 \alias{lm_each_subsample}
-\title{compute the estimates}
+\title{Computing Estimates}
 \usage{
 lm_each_subsample(formula, data, n, B)
 }
+\arguments{
+\item{formula}{a symbolic description of the model to be fitted.}
+
+\item{data}{a set of data.}
+
+\item{n}{number of rows of the data.}
+
+\item{B}{number of bootstraps.}
+}
+\value{
+a list of estimates for the subsample.
+}
 \description{
-compute the estimates
+Compute the estimates for each subsample.
 }
