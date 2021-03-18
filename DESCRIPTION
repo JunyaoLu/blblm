@@ -10,7 +10,10 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Suggests: 
-    testthat (>= 2.1.0)
+    testthat (>= 2.1.0),
+    knitr,
+    rmarkdown,
+    tidyverse
 Imports: 
     purrr,
     magrittr,
@@ -23,3 +26,4 @@ RoxygenNote: 7.1.1
 LinkingTo: 
     Rcpp,
     RcppArmadillo
+VignetteBuilder: knitr
