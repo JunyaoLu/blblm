@@ -12,6 +12,8 @@ lm1(X, y, n, fast_option = FALSE)
 \item{y}{dependent variables of the data.}
 
 \item{n}{number of rows of the data.}
+
+\item{fast_option}{optional to use Rcpp for faster computation. By default, \code{fast_option = FALSE}.}
 }
 \value{
 a list of coefficients and sigma for the blb dataset.

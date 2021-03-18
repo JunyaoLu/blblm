@@ -104,18 +104,19 @@ lm_each_subsample <- function(formula, data, n, B) {
 #' @param X independent variables of the data.
 #' @param y dependent variables of the data.
 #' @param n number of rows of the data.
-#' @fast_option optional to use Rcpp for faster computation. By default, `fast_option = FALSE`.
+#' @param fast_option optional to use Rcpp for faster computation. By default, `fast_option = FALSE`.
 #'
 #' @return a list of coefficients and sigma for the blb dataset.
 lm1 <- function(X, y, n, fast_option = FALSE) {
   freqs <- as.vector(rmultinom(1, n, rep(1, nrow(X))))
   if (fast_option) {
     fit <- fast_wlm(as.matrix(X), as.matrix(y), as.matrix(freqs))
+    list(coef = fit$coefficients, sigma = mean(fit$sigma))
   }
   else {
     fit <- lm.wfit(X, y, freqs)
+    list(coef = blbcoef(fit), sigma = blbsigma(fit))
   }
-  list(coef = blbcoef(fit), sigma = blbsigma(fit))
 }
 
 
