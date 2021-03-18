@@ -4,10 +4,9 @@
 #' @import furrr
 #' @import future
 #' @import utils
-#' @import RcppArmadillo
 #' @importFrom magrittr %>%
 #' @details
-#' Linear Regression with Little Bag of Bootstraps
+#' Logistic Linear Regression with Little Bag of Bootstraps
 "_PACKAGE"
 
 
@@ -17,44 +16,47 @@ utils::globalVariables(c("."))
 
 
 
-#' Fitting Linear Models with Bag of Little Bootstrap
+#' Fitting Logistic Linear Models with Bag of Little Bootstrap
 #'
-#' `blblm` is used to fit linear models with bag of little bootstrap.
+#' `blbglm` is used to fit logistic linear models with bag of little bootstrap.
 #' It can be used to carry out regression, analysis of variance, coefficients, confident interval,
 #' and to compute prediction based on the regression results.
 #'
 #'
 #' @param formula an object of class "formula": a symbolic description of the model to be fitted (for example, y ~ x).
 #' @param data a data frame, list or environment containing variables in the model.
+#' @param family a description of the error distribution and link function to be used in the model.
 #' @param m an integer specifying the number of subsamples to be used for the bag of little bootstrap process. By default, `m = 10`.
 #' @param B an integer specifying the number of bootstraps for each subsample. By default, `B = 5000`.
 #' @param nthreads an integer which indicates the number of CPUs to be used for parallelization. By default, `nthreds = 1`.
 #'
-#' @return `blblm` returns an object of class "blblm".
+#' @return `blbglm` returns an object of class "blbglm".
 #' @export
 #' @examples
-#' blblm(mpg ~ wt * hp, data = mtcars, m = 3, B = 100)
-#' blblm(mpg ~ wt * hp, data = mtcars, m = 10, B = 1000, nthreads = 4) # using parallelization
+#' blbglm(Species ~ Sepal.Length * Sepal.Width, data = iris, family = binomial(), m = 3, B = 100)
+#' # using parallelization
+#' blbglm(Species ~ Sepal.Length * Sepal.Width, data = iris, family = binomial(), 3, 100, nthreads = 1)
 #' @export
-blblm <- function(formula, data, m = 10, B = 5000, nthreads = 1) {
+blbglm <- function(formula, data, family, m = 10, B = 5000, nthreads = 1) {
+  options(warn = -1)
   data_list <- split_data(data, m)
   if (nthreads > 1) {
     suppressWarnings(plan(multiprocess, workers = nthreads))
     options(future.rng.onMisuse = "ignore")
     estimates <- future_map(
       data_list,
-      ~ lm_each_subsample(formula = formula, data = ., n = nrow(data), B = B)
+      ~ glm_each_subsample(formula = formula, data = ., n = nrow(data), B = B, family = family)
     )
   }
   else {
     estimates <- map(
       data_list,
-      ~ lm_each_subsample(formula = formula, data = ., n = nrow(data), B = B)
+      ~ glm_each_subsample(formula = formula, data = ., n = nrow(data), B = B, family = family)
     )
   }
   if (!inherits(plan(), "sequential")) plan(sequential)
   res <- list(estimates = estimates, formula = formula)
-  class(res) <- "blblm"
+  class(res) <- "blbglm"
   invisible(res)
 }
 
@@ -83,16 +85,11 @@ split_data <- function(data, m) {
 #' @param data a set of data.
 #' @param n number of rows of the data.
 #' @param B number of bootstraps.
+#' @param family a description of the error distribution and link function to be used in the model.
 #'
 #' @return a list of estimates for the subsample.
-lm_each_subsample <- function(formula, data, n, B) {
-  # drop the original closure of formula,
-  # otherwise the formula will pick a wrong variable from the global scope.
-  environment(formula) <- environment()
-  m <- model.frame(formula, data)
-  X <- model.matrix(formula, m)
-  y <- model.response(m)
-  replicate(B, lm1(X, y, n), simplify = FALSE)
+glm_each_subsample <- function(formula, data, n, B, family) {
+  replicate(B, glm1(formula, data, n, family), simplify = FALSE)
 }
 
 
@@ -101,20 +98,16 @@ lm_each_subsample <- function(formula, data, n, B) {
 #' Compute the regression estimates for a blb dataset.
 #'
 #'
-#' @param X independent variables of the data.
-#' @param y dependent variables of the data.
+#' @param formula a symbolic description of the model to be fitted.
+#' @param data a set of data.
 #' @param n number of rows of the data.
-#' @fast_option optional to use Rcpp for faster computation. By default, `fast_option = FALSE`.
+#' @param family a description of the error distribution and link function to be used in the model.
 #'
 #' @return a list of coefficients and sigma for the blb dataset.
-lm1 <- function(X, y, n, fast_option = FALSE) {
-  freqs <- as.vector(rmultinom(1, n, rep(1, nrow(X))))
-  if (fast_option) {
-    fit <- fast_wlm(as.matrix(X), as.matrix(y), as.matrix(freqs))
-  }
-  else {
-    fit <- lm.wfit(X, y, freqs)
-  }
+glm1 <- function(formula, data, n, family) {
+  environment(formula) <- environment()
+  freqs <- as.vector(rmultinom(1, n, rep(1, nrow(data))))
+  fit <- glm(formula, data, family = family, weights = freqs)
   list(coef = blbcoef(fit), sigma = blbsigma(fit))
 }
 
@@ -141,26 +134,23 @@ blbcoef <- function(fit) {
 #'
 #' @return the sigma of the model.
 blbsigma <- function(fit) {
-  p <- fit$rank
-  e <- fit$residuals
-  w <- fit$weights
-  sqrt(sum(w * (e^2)) / (sum(w) - p))
+  sigma(fit)
 }
 
 
 #' Printing Regression Model
 #'
-#' Print the formula for the blblm model.
+#' Print the formula for the blbglm model.
 #'
 #'
-#' @param x a blblm model.
+#' @param x a blbglm model.
 #' @param ... additional arguments to be passed.
 #'
 #' @return formula.
 #' @export
-#' @method print blblm
-print.blblm <- function(x, ...) {
-  cat("blblm model:", capture.output(x$formula))
+#' @method print blbglm
+print.blbglm <- function(x, ...) {
+  cat("blbglm model:", capture.output(x$formula))
   cat("\n")
 }
 
@@ -177,8 +167,8 @@ print.blblm <- function(x, ...) {
 #'
 #' @return estimated sigma or a confidence interval for it.
 #' @export
-#' @method sigma blblm
-sigma.blblm <- function(object, confidence = FALSE, level = 0.95, ...) {
+#' @method sigma blbglm
+sigma.blbglm <- function(object, confidence = FALSE, level = 0.95, ...) {
   est <- object$estimates
   sigma <- mean(map_dbl(est, ~ mean(map_dbl(., "sigma"))))
   if (confidence) {
@@ -197,13 +187,13 @@ sigma.blblm <- function(object, confidence = FALSE, level = 0.95, ...) {
 #' Get the coefficients for the blblm model.
 #'
 #'
-#' @param object a blblm model.
+#' @param object a blbglm model.
 #' @param ... additional arguments to be pased.
 #'
 #' @return coefficients of the model.
 #' @export
-#' @method coef blblm
-coef.blblm <- function(object, ...) {
+#' @method coef blbglm
+coef.blbglm <- function(object, ...) {
   est <- object$estimates
   map_mean(est, ~ map_cbind(., "coef") %>% rowMeans())
 }
@@ -214,15 +204,15 @@ coef.blblm <- function(object, ...) {
 #' Get the confidence interval for the coeficients.
 #'
 #'
-#' @param object a blblm model.
+#' @param object a blbglm model.
 #' @param parm a list of parameters used to construct confidence interval.
 #' @param level the significance level for the confidence interval.
 #' @param ... additional arguments to be passed.
 #'
 #' @return a matrix or vector with columns giving lower and upper confidence limits for each parameter.
 #' @export
-#' @method confint blblm
-confint.blblm <- function(object, parm = NULL, level = 0.95, ...) {
+#' @method confint blbglm
+confint.blbglm <- function(object, parm = NULL, level = 0.95, ...) {
   if (is.null(parm)) {
     parm <- attr(terms(object$formula), "term.labels")
   }
@@ -240,7 +230,7 @@ confint.blblm <- function(object, parm = NULL, level = 0.95, ...) {
 
 #' Model Prediction
 #'
-#' Predict from the results of various blblm model fitting functions for new data.
+#' Predict from the results of various blbglm model fitting functions for new data.
 #'
 #'
 #' @param object a blblm model.
@@ -251,8 +241,8 @@ confint.blblm <- function(object, parm = NULL, level = 0.95, ...) {
 #'
 #' @return a numeric of vector for predicted value (and its confidence interval if applicable).
 #' @export
-#' @method predict blblm
-predict.blblm <- function(object, new_data, confidence = FALSE, level = 0.95, ...) {
+#' @method predict blbglm
+predict.blbglm <- function(object, new_data, confidence = FALSE, level = 0.95, ...) {
   est <- object$estimates
   X <- model.matrix(reformulate(attr(terms(object$formula), "term.labels")), new_data)
   if (confidence) {
@@ -270,16 +260,13 @@ mean_lwr_upr <- function(x, level = 0.95) {
   c(fit = mean(x), quantile(x, c(alpha / 2, 1 - alpha / 2)) %>% set_names(c("lwr", "upr")))
 }
 
-
 map_mean <- function(.x, .f, ...) {
   (map(.x, .f, ...) %>% reduce(`+`)) / length(.x)
 }
 
-
 map_cbind <- function(.x, .f, ...) {
   map(.x, .f, ...) %>% reduce(cbind)
 }
-
 
 map_rbind <- function(.x, .f, ...) {
   map(.x, .f, ...) %>% reduce(rbind)

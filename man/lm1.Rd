@@ -4,7 +4,7 @@
 \alias{lm1}
 \title{Computing Regression Estimates}
 \usage{
-lm1(X, y, n)
+lm1(X, y, n, fast_option = FALSE)
 }
 \arguments{
 \item{X}{independent variables of the data.}
