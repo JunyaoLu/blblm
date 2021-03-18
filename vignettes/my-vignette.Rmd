@@ -1,11 +1,12 @@
 ---
-title: "my-vignette"
+title: "Vignette for blblm Package"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{my-vignette}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
+
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
@@ -14,6 +15,147 @@ knitr::opts_chunk$set(
 )
 ```
 
-```{r setup}
+
+
+```{r setup, message = FALSE}
 library(blblm)
+library(tidyverse)
 ```
+
+
+
+
+### Introduction
+
+Bag of little bootstrap is a procedure which incorporates features of both the bootstrap and subsampling to yield a robust, computationally efficient means of assessing the quality of estimators. By applying bag of little bootstrap to the regression process, we would expect to get more accurate estimations for coefficients, sigmas, and so on. The main task for this assignment is to improve the blblm package. 
+
+
+
+
+### `blblm()`
+
+First of all, I make some improvement for `blblm(formula, data, m = 10, B = 5000, nthreads = 1)` by allowing the users to choose the number of CPUs they want to use when running the codes. By default, the number of threads is 1. If the user wants to do parallization, they can simply change the parameter `nthreads` to the number of threads they need. 
+
+
+```{r, message = FALSE, warning = FALSE}
+bench::mark(
+  blblm(mpg ~ wt * hp, data = mtcars, m = 3, B = 100),
+  blblm(mpg ~ wt * hp, data = mtcars, m = 3, B = 100, nthreads = 4),
+  check = FALSE
+)
+```
+
+
+The result above show that the `blblm()` function without parallelization takes significantly less time than the `blblm()` function with parallelization. This result is not suprising, because `mtcars` is a very small dataset with only 32 rows and 11 columns. So, it might be time consuming to start and stop clustering for such a small dataset. To prove that the `blblm()` function with parallelization works better, we are going to test on a larger dataset. 
+
+
+```{r, message = FALSE, warning = FALSE}
+set.seed(2021)
+x <- runif(5000, 1, 100)
+y <- runif(5000, 1, 100)
+rand_df <- data.frame(x, y)
+bench::mark(
+  blblm(y ~ x, data = rand_df, m = 10, B = 5000),
+  blblm(y ~ x, data = rand_df, m = 10, B = 5000, nthreads = 4),
+  check = FALSE
+)
+```
+
+
+By generating a random data frame with 5000 rows and 2 columns, increasing the number of subsamples to be used for the bag of little bootstrap process `m` to 10, and increasing the number of bootstraps for each subsample to 5000, the `blblm()` function with parallelization is now significantly efficient. The `blblm()` function with parallielization works better than the pure `blblm()` function for large datasets. The `blblm()` function with parallielization not long takes less time, but also takes less memory to run.
+
+
+Therefore, if the user wants to do computations on a relatively small dataset, it is recommended to use the default setting of `nthreads = 1` for better efficiency. If the user wants to do computations on a relatively large dataset, it is then recommended to use parallelization to reduce the time and memory used. However, it is important for users to set `nthreads` smaller than or equal to the number of cores his/her laptop/computer has. `parallel::detectCores()` may use to check the number of cores. 
+
+
+
+#### `lm1`
+
+Originally, the `blblm` package is all written in R codes. Thus, I add `fast_option` to `lm1(X, y, n, fast_option = FALSE)`. By setting `fast_option = TRUE`, the computation of regression models will be done in Rcpp codes, which improves the efficiency. 
+
+
+```{r}
+set.seed(2021)
+m <- model.frame(mpg ~ wt * hp, data = mtcars)
+X <- model.matrix(mpg ~ wt * hp, m)
+y <- model.response(m)
+freqs <- as.vector(rmultinom(1, 30, rep(1, nrow(X))))
+bench::mark(
+  blblm:::lm1(X, y, 30),
+  blblm:::lm1(X, y, 30, fast_option = TRUE),
+  check = FALSE
+)
+```
+
+
+From the result above, it is noticeable that when Rcpp codes are used and `fast_wlm()` is runned, the running time is shorter than R codes. The performance of Rcpp codes is much better. The users can pass on their preferences in `blblm()` function and their preferences on using Rcpp or R codes will be transferred to `lm1()` function. It is still recommended to use Rcpp codes when the dataset is large. 
+
+
+
+#### Other Components of `blblm()`
+
+An object of class `blblm` contains the following components as well: coefficients, residuals, sigma, confidence interval, and so on. Here is an example of computing these components.
+
+
+```{r}
+# first, compute the blblm fitted mode for `mtcars`
+fit <- blblm(mpg ~ wt * hp, data = mtcars, m = 3, B = 100)
+
+# print out the model
+print(fit)
+
+# the coefficients of the fit 
+coef(fit)
+
+# the confidence intervals for variables
+confint(fit, c("wt", "hp"))
+
+# the sigma of the fit
+sigma(fit)
+
+# the confidence interval for sigma
+sigma(fit, confidence = TRUE)
+
+# the predictions based on new data
+predict(fit, data.frame(wt = c(2.5, 3), hp = c(150, 170)))
+
+# the confidence intervlas for predictions
+predict(fit, data.frame(wt = c(2.5, 3), hp = c(150, 170)), confidence = TRUE)
+```
+
+
+
+
+### `blbglm()`
+
+Then, I construct a `blbglm()` function, which is similar to the `blblm()` function. The only difference is that `blbglm()` is used for logistic regression models and `blblm()` is used for linear regression models. `blbglm(formula, data, family, m = 10, B = 5000, nthreads = 1)` also has the option to choose the number of threads to use. If the user does not want to use parallelization, he/she can simply leave it as default setting. If the user wants to use parallelization, he/she can specify the number of cores to use in the function. 
+
+
+Here is a simple example of using the `blbglm()` function. Let's take the Iris dataset as an example. 
+
+
+```{r, message = FALSE, warning = FALSE}
+# first, compute the blbglm fitted mode for `Iris`
+
+fit <- blbglm(Species ~ Sepal.Length * Petal.Width, data = iris[1:100,], family = binomial(), m = 3, B = 100)
+
+# print out the model
+print(fit)
+
+# the coefficients of the fit 
+coef(fit)
+
+# the confidence intervals for variables
+confint(fit, c("Sepal.Length", "Petal.Width"))
+
+# the predictions based on new data
+predict(fit, data.frame(Sepal.Length = c(5, 6), Petal.Width = c(4, 6)))
+
+# the confidence intervlas for predictions
+predict(fit, data.frame(Sepal.Length = c(5, 6), Petal.Width = c(4, 6)), confidence = TRUE)
+```
+
+
+
+
+

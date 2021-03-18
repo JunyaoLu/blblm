@@ -29,6 +29,7 @@ utils::globalVariables(c("."))
 #' @param m an integer specifying the number of subsamples to be used for the bag of little bootstrap process. By default, `m = 10`.
 #' @param B an integer specifying the number of bootstraps for each subsample. By default, `B = 5000`.
 #' @param nthreads an integer which indicates the number of CPUs to be used for parallelization. By default, `nthreds = 1`.
+#' @param fast_option logical. `TRUE` if using Rcpp code in `lm1()`. By default, `fast_option = FALSE`.
 #'
 #' @return `blblm` returns an object of class "blblm".
 #' @export
@@ -36,20 +37,20 @@ utils::globalVariables(c("."))
 #' blblm(mpg ~ wt * hp, data = mtcars, m = 3, B = 100)
 #' blblm(mpg ~ wt * hp, data = mtcars, m = 10, B = 1000, nthreads = 4) # using parallelization
 #' @export
-blblm <- function(formula, data, m = 10, B = 5000, nthreads = 1) {
+blblm <- function(formula, data, m = 10, B = 5000, nthreads = 1, fast_option = FALSE) {
   data_list <- split_data(data, m)
   if (nthreads > 1) {
     suppressWarnings(plan(multiprocess, workers = nthreads))
     options(future.rng.onMisuse = "ignore")
     estimates <- future_map(
       data_list,
-      ~ lm_each_subsample(formula = formula, data = ., n = nrow(data), B = B)
+      ~ lm_each_subsample(formula = formula, data = ., n = nrow(data), B = B, fast_option)
     )
   }
   else {
     estimates <- map(
       data_list,
-      ~ lm_each_subsample(formula = formula, data = ., n = nrow(data), B = B)
+      ~ lm_each_subsample(formula = formula, data = ., n = nrow(data), B = B, fast_option)
     )
   }
   if (!inherits(plan(), "sequential")) plan(sequential)
@@ -83,16 +84,17 @@ split_data <- function(data, m) {
 #' @param data a set of data.
 #' @param n number of rows of the data.
 #' @param B number of bootstraps.
+#' @param fast_option logical. `TRUE` if using Rcpp code in `lm1()`. By default, `fast_option = FALSE`.
 #'
 #' @return a list of estimates for the subsample.
-lm_each_subsample <- function(formula, data, n, B) {
+lm_each_subsample <- function(formula, data, n, B, fast_option) {
   # drop the original closure of formula,
   # otherwise the formula will pick a wrong variable from the global scope.
   environment(formula) <- environment()
   m <- model.frame(formula, data)
   X <- model.matrix(formula, m)
   y <- model.response(m)
-  replicate(B, lm1(X, y, n), simplify = FALSE)
+  replicate(B, lm1(X, y, n, fast_option), simplify = FALSE)
 }
 
 

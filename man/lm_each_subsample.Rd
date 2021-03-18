@@ -4,7 +4,7 @@
 \alias{lm_each_subsample}
 \title{Computing Estimates}
 \usage{
-lm_each_subsample(formula, data, n, B)
+lm_each_subsample(formula, data, n, B, fast_option)
 }
 \arguments{
 \item{formula}{a symbolic description of the model to be fitted.}
@@ -14,6 +14,8 @@ lm_each_subsample(formula, data, n, B)
 \item{n}{number of rows of the data.}
 
 \item{B}{number of bootstraps.}
+
+\item{fast_option}{logical. \code{TRUE} if using Rcpp code in \code{lm1()}. By default, \code{fast_option = FALSE}.}
 }
 \value{
 a list of estimates for the subsample.

@@ -20,7 +20,8 @@ Imports:
     furrr,
     future,
     Rcpp,
-    RcppArmadillo
+    RcppArmadillo,
+    bench
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.1
 LinkingTo: 

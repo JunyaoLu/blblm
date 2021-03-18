@@ -4,7 +4,7 @@
 \alias{blblm}
 \title{Fitting Linear Models with Bag of Little Bootstrap}
 \usage{
-blblm(formula, data, m = 10, B = 5000, nthreads = 1)
+blblm(formula, data, m = 10, B = 5000, nthreads = 1, fast_option = FALSE)
 }
 \arguments{
 \item{formula}{an object of class "formula": a symbolic description of the model to be fitted (for example, y ~ x).}
@@ -16,6 +16,8 @@ blblm(formula, data, m = 10, B = 5000, nthreads = 1)
 \item{B}{an integer specifying the number of bootstraps for each subsample. By default, \code{B = 5000}.}
 
 \item{nthreads}{an integer which indicates the number of CPUs to be used for parallelization. By default, \code{nthreds = 1}.}
+
+\item{fast_option}{logical. \code{TRUE} if using Rcpp code in \code{lm1()}. By default, \code{fast_option = FALSE}.}
 }
 \value{
 \code{blblm} returns an object of class "blblm".
